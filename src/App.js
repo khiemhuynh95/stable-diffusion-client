@@ -28,14 +28,15 @@ const App = () => {
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
   const [samplers, setSamplers] = useState([])
   const [models, setModels] = useState([])
-
+  const [currentModel, setCurrentModel] = useState("")
+  
   const [advancedSettings, setAdvancedSettings] = useState({
-    model: "",
+    //default: model: "mdjrny-v4",
     samplingMethod: "",
     steps: 40,
     width: 512,
     height: 768,
-    cfgScale: 5.0,
+    cfgScale: 6.0,
   });
 
   const getImage = async (prompt, negativePrompt, url) => {
@@ -122,6 +123,36 @@ const App = () => {
     }
   };
 
+  const changeModel = async (model, url) => {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          // This is your API key
+          //authorization: `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
+          accept: 'application/json',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          sd_model: model
+        }),
+      });
+
+      if (response.ok) {
+        // Request succeeded
+        const data = await response.json();
+        console.log('Response data:', data);
+        return data;
+      } else {
+        // Request failed
+        console.error('Request failed:', response.status, response.statusText);
+      }
+    } catch (error) {
+      // Error occurred during the request
+      console.error('Request error:', error);
+    }
+  };
+
   const generate = async (prompt, negativePrompt) => {
     console.log(advancedSettings)
     updateLoading(true);
@@ -138,9 +169,24 @@ const App = () => {
     }));
   };
 
+  const handleModelChange = async (e, model) => {
+    let value;
+    if (e && e.target) {
+      value = e.target.value;
+    } else {
+      value = model
+    }
+
+    console.log('Current model: ' + value)
+    setCurrentModel(value)
+    //call api to reload that model
+    await changeModel(value, 'http://127.0.0.1:7860/sdapi/v1/reload-model')
+  };
+
   return (
     <ChakraProvider>
       <Container>
+      
         <Heading>Stable DIffusion🚀</Heading>
         <Text marginBottom={"10px"}>
           This react application leverages the model trained by Stability AI and
@@ -183,9 +229,9 @@ const App = () => {
                 const list_models = await getModels('http://127.0.0.1:7860/sdapi/v1/sd-models');
                 setSamplers(list_samplers);
                 setModels(list_models)
+                handleModelChange(null, list_models[0].model_name)
                 setAdvancedSettings((prevSettings) => ({
                   ...prevSettings,
-                  model: list_models[0].model_name,
                   samplingMethod: list_samplers[0].name,
                 }));
                 
@@ -200,8 +246,8 @@ const App = () => {
                 <FormLabel>Model</FormLabel>
                 <Select
                   name="model"
-                  value={advancedSettings.sd_model}
-                  onChange={handleAdvancedSettingsChange}
+                  value={currentModel}
+                  onChange={handleModelChange}
                   width={"250px"}
                 >
                   {models.map((model) => (
@@ -225,6 +271,17 @@ const App = () => {
                     </option>
                   ))}
                 </Select>
+              </FormControl>
+
+              <FormControl marginBottom={"10px"}>
+                <FormLabel>Steps</FormLabel>
+                <Input
+                  name="steps"
+                  value={advancedSettings.steps}
+                  onChange={handleAdvancedSettingsChange}
+                  placeholder="Steps"
+                  width={"100px"}
+                />
               </FormControl>
             </Flex>
 
@@ -260,21 +317,10 @@ const App = () => {
                   width={"100px"}
                 />
               </FormControl>
-
-              <FormControl marginBottom={"10px"}>
-                <FormLabel>Steps</FormLabel>
-                <Input
-                  name="steps"
-                  value={advancedSettings.steps}
-                  onChange={handleAdvancedSettingsChange}
-                  placeholder="Steps"
-                  width={"100px"}
-                />
-              </FormControl>
             </Flex>
           </>
         )}
-
+        
         {loading ? (
           <Stack>
             <SkeletonCircle />
