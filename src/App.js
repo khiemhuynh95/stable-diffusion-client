@@ -15,9 +15,16 @@ import {
   FormLabel,
   Select,
   Switch,
-  Flex
+  Flex,
+  Textarea
 } from "@chakra-ui/react";
 import { useState } from "react";
+import {
+  getImage, 
+  getSamplers, 
+  getModels, 
+  changeModel
+} from "./api"
 
 const App = () => {
   const [image, updateImage] = useState();
@@ -25,12 +32,12 @@ const App = () => {
   const [negPrompt, updateNegPrompt] = useState("");
   const [loading, updateLoading] = useState(false);
 
-  const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
-  const [samplers, setSamplers] = useState([])
-  const [models, setModels] = useState([])
-  const [currentModel, setCurrentModel] = useState("")
-  
-  const [advancedSettings, setAdvancedSettings] = useState({
+  const [showAdvancedSettings, updateShowAdvancedSettings] = useState(false);
+  const [samplers, updateSamplers] = useState([])
+  const [models, updateModels] = useState([])
+  const [currentModel, updateCurrentModel] = useState("")
+
+  const [advancedSettings, updateAdvancedSettings] = useState({
     //default: model: "mdjrny-v4",
     samplingMethod: "",
     steps: 40,
@@ -39,131 +46,22 @@ const App = () => {
     cfgScale: 6.0,
   });
 
-  const getImage = async (prompt, negativePrompt, url) => {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          // This is your API key
-          //authorization: `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
-          accept: 'application/json',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: prompt,
-          negative_prompt: negativePrompt,
-          ...advancedSettings,
-        }),
-      });
-
-      if (response.ok) {
-        // Request succeeded
-        const data = await response.json();
-        console.log('Response data:', data);
-        return data;
-      } else {
-        // Request failed
-        console.error('Request failed:', response.status, response.statusText);
-      }
-    } catch (error) {
-      // Error occurred during the request
-      console.error('Request error:', error);
-    }
-  };
-
-  const getSamplers = async (url) => {
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          // This is your API key
-          //authorization: `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
-          accept: 'application/json',
-        }
-      });
-
-      if (response.ok) {
-        // Request succeeded
-        const data = await response.json();
-        console.log('Response data:', data);
-        return data;
-      } else {
-        // Request failed
-        console.error('Request failed:', response.status, response.statusText);
-      }
-    } catch (error) {
-      // Error occurred during the request
-      console.error('Request error:', error);
-    }
-  };
-
-  const getModels = async (url) => {
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          // This is your API key
-          //authorization: `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
-          accept: 'application/json',
-        }
-      });
-
-      if (response.ok) {
-        // Request succeeded
-        const data = await response.json();
-        console.log('Response data:', data);
-        return data;
-      } else {
-        // Request failed
-        console.error('Request failed:', response.status, response.statusText);
-      }
-    } catch (error) {
-      // Error occurred during the request
-      console.error('Request error:', error);
-    }
-  };
-
-  const changeModel = async (model, url) => {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          // This is your API key
-          //authorization: `Bearer ${process.env.REACT_APP_OPENAI_API_KEY}`,
-          accept: 'application/json',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
-          sd_model: model
-        }),
-      });
-
-      if (response.ok) {
-        // Request succeeded
-        const data = await response.json();
-        console.log('Response data:', data);
-        return data;
-      } else {
-        // Request failed
-        console.error('Request failed:', response.status, response.statusText);
-      }
-    } catch (error) {
-      // Error occurred during the request
-      console.error('Request error:', error);
-    }
-  };
-
-  const generate = async (prompt, negativePrompt) => {
+  const generate = async (prompt, negativePrompt, advancedSettings) => {
     console.log(advancedSettings)
     updateLoading(true);
-    const imageData = await getImage(prompt, negativePrompt, 'http://127.0.0.1:7860/sdapi/v1/txt2img');
+    const data = {
+      prompt: prompt,
+      negative_prompt: negativePrompt,
+      ...advancedSettings
+    }
+    const imageData = await getImage(data, 'http://127.0.0.1:7860/sdapi/v1/txt2img');
     updateImage(imageData.images[0]);
     updateLoading(false);
   };
 
   const handleAdvancedSettingsChange = (e) => {
     const { name, value } = e.target;
-    setAdvancedSettings((prevSettings) => ({
+    updateAdvancedSettings((prevSettings) => ({
       ...prevSettings,
       [name]: value,
     }));
@@ -178,7 +76,7 @@ const App = () => {
     }
 
     console.log('Current model: ' + value)
-    setCurrentModel(value)
+    updateCurrentModel(value)
     //call api to reload that model
     await changeModel(value, 'http://127.0.0.1:7860/sdapi/v1/reload-model')
   };
@@ -186,7 +84,6 @@ const App = () => {
   return (
     <ChakraProvider>
       <Container>
-      
         <Heading>Stable DIffusion🚀</Heading>
         <Text marginBottom={"10px"}>
           This react application leverages the model trained by Stability AI and
@@ -210,7 +107,7 @@ const App = () => {
             width={"350px"}
             placeholder="Negative Prompt"
           ></Input>
-          <Button onClick={(e) => generate(prompt, negPrompt)} colorScheme={"yellow"}>
+          <Button onClick={(e) => generate(prompt, negPrompt, advancedSettings)} colorScheme={"yellow"}>
             Generate
           </Button>
         </Wrap>
@@ -223,18 +120,18 @@ const App = () => {
             colorScheme="teal"
             isChecked={showAdvancedSettings}
             onChange={async () => {
-              setShowAdvancedSettings(!showAdvancedSettings);
+              updateShowAdvancedSettings(!showAdvancedSettings);
               if (samplers.length === 0) {
                 const list_samplers = await getSamplers('http://127.0.0.1:7860/sdapi/v1/samplers');
                 const list_models = await getModels('http://127.0.0.1:7860/sdapi/v1/sd-models');
-                setSamplers(list_samplers);
-                setModels(list_models)
+                updateSamplers(list_samplers);
+                updateModels(list_models)
                 handleModelChange(null, list_models[0].model_name)
-                setAdvancedSettings((prevSettings) => ({
+                updateAdvancedSettings((prevSettings) => ({
                   ...prevSettings,
                   samplingMethod: list_samplers[0].name,
                 }));
-                
+
               }
             }}
           />
@@ -242,7 +139,7 @@ const App = () => {
         {showAdvancedSettings && (
           <>
             <Flex alignItems="center" marginBottom="10px">
-              <FormControl marginBottom={"10px"}  marginRight={"10px"}>
+              <FormControl marginBottom={"10px"} marginRight={"10px"}>
                 <FormLabel>Model</FormLabel>
                 <Select
                   name="model"
@@ -320,14 +217,23 @@ const App = () => {
             </Flex>
           </>
         )}
-        
+
         {loading ? (
           <Stack>
             <SkeletonCircle />
             <SkeletonText />
           </Stack>
         ) : image ? (
-          <Image src={`data:image/png;base64,${image}`} boxShadow="lg" />
+          <Flex>
+            <Image src={`data:image/png;base64,${image}`} boxShadow="lg" />
+            <Textarea
+              value="{textValue}"
+              isReadOnly
+              ml={1}
+              placeholder="Image Title"
+            />
+          </Flex>
+
         ) : null}
       </Container>
     </ChakraProvider>);
